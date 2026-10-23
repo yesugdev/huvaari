@@ -115,6 +115,57 @@ table.grid{border-collapse:separate;border-spacing:3px;width:100%;min-width:760p
 .ctrl select,.ctrl input[type=time]{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:4px 6px}
 .ctrl button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:6px;padding:4px 10px;cursor:pointer}
 footer{font-size:12px;color:var(--muted)}
+
+/* Week as stacked day cards — used on phones instead of the wide table */
+.wlist{display:none;gap:10px}
+.wday{border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:6px}
+.wday.is-today{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.wday h3{margin:0;font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.wday h3 small{color:var(--muted);font-weight:500}
+.wday .cell{flex-direction:row;align-items:center;gap:10px;padding:8px 10px;height:auto;min-height:44px}
+.wday .cell em{font-style:normal;font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums;width:88px;flex:none}
+.wday .cell b{width:44px;flex:none}
+.wday .cell span{flex:1;min-width:0}
+.wday.empty-day{grid-template-columns:1fr;color:var(--muted)}
+.wday.empty-day h3{font-weight:500}
+
+@media (max-width:820px){
+  table.grid{min-width:620px}
+  .grid th.row{width:76px;font-size:11px}
+}
+@media (max-width:640px){
+  body{font-size:14px;padding-block:14px 32px}
+  .wrap{gap:14px}
+  .panel{padding:16px}
+  .top{gap:14px}
+  .status{gap:12px}
+  .scroll{display:none}
+  .wlist{display:grid}
+  .week-head{flex-direction:column;align-items:flex-start}
+  .today-head{flex-direction:column;align-items:flex-start}
+  .day-tabs button{padding:6px 10px;font-size:13px}
+  .legend button{padding:5px 12px}
+  ol.periods li{grid-template-columns:20px minmax(0,1fr) auto;grid-template-areas:"n t tag" "n s tag";row-gap:0;padding:8px}
+  ol.periods li .n{grid-area:n}
+  ol.periods li .t{grid-area:t;font-size:12px}
+  ol.periods li .s{grid-area:s;white-space:normal}
+  ol.periods li .tag{grid-area:tag}
+  ol.periods li.empty .t{grid-row:1 / span 2;align-self:center}
+  ol.periods li.empty .s{display:none}
+  .next{flex-direction:column;align-items:flex-start}
+  .next .cd{font-size:26px}
+  .stat .v{font-size:20px}
+  .ctrl{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ctrl > .label{grid-column:1 / -1}
+  .ctrl label{display:grid;gap:4px}
+  .ctrl select,.ctrl input[type=time]{width:100%;padding:8px}
+  .ctrl button{padding:9px 10px}
+  #simNote{grid-column:1 / -1}
+}
+@media (max-width:360px){
+  .wday .cell em{width:74px;font-size:11px}
+  .ctrl{grid-template-columns:1fr}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 
@@ -167,6 +218,7 @@ footer{font-size:12px;color:var(--muted)}
       <div class="legend" id="legend" role="group" aria-label="Анги шүүх"></div>
     </div>
     <div class="scroll"><table class="grid" id="grid"></table></div>
+    <div class="wlist" id="wlist"></div>
     <div id="detail" class="detail" hidden></div>
     <div class="stats" id="stats"></div>
   </section>
@@ -370,9 +422,24 @@ footer{font-size:12px;color:var(--muted)}
       h+='</tr>';
     });
     $("grid").innerHTML=h+'</tbody>';
+
+    // phone view: one card per day
+    let w="";
+    DAYS.forEach((n,di)=>{
+      const items=P.filter(p=>S[di][p.i]);
+      const tc=di===today?" is-today":"";
+      if(!items.length){w+=`<div class="wday empty-day${tc}"><h3>${n}<small>хичээлгүй</small></h3></div>`;return}
+      w+=`<div class="wday${tc}"><h3>${n}${di===today?" · өнөөдөр":""}<small>${items.length} цаг</small></h3>`;
+      items.forEach(p=>{
+        const ls=S[di][p.i];const isNow=di===today&&L.cur&&L.cur.i===p.i;const dim=hidden.has(ls.cls);
+        w+=`<button type="button" class="cell${isNow?" is-now":""}${dim?" dim":""}" style="--h:${HUE[ls.grade]}" data-d="${di}" data-p="${p.i}" aria-label="${n}, ${p.a}, ${ls.cls} анги"><em>${p.a}–${p.b}</em><b>${ls.cls}</b><span>${ls.code}</span></button>`;
+      });
+      w+='</div>';
+    });
+    $("wlist").innerHTML=w;
   }
 
-  $("grid").addEventListener("click",e=>{
+  document.querySelector(".week").addEventListener("click",e=>{
     const c=e.target.closest(".cell");if(!c)return;
     const di=+c.dataset.d,pi=+c.dataset.p,ls=S[di][pi],p=P[pi];
     const sameClass=RAW.filter(r=>r[3]===ls.cls).length;
